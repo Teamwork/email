@@ -11,13 +11,14 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/mail"
-	"net/smtp"
 	"net/textproto"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	smtp "github.com/teamwork/smtpx"
 )
 
 const (
