@@ -10,8 +10,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/mail"
-
-	smtp "github.com/teamwork/smtpx"
+	"net/smtp"
 )
 
 func TestEmailTextHtmlAttachment(t *testing.T) {
