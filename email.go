@@ -6,12 +6,14 @@ package email
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/mail"
 	"net/smtp"
 	"net/textproto"
@@ -194,9 +196,11 @@ func (e *Email) Bytes() ([]byte, error) {
 	return buff.Bytes(), nil
 }
 
-// Send an email using the given host and SMTP auth (optional), returns any error thrown by smtp.SendMail
-// This function merges the To, Cc, and Bcc fields and calls the smtp.SendMail function using the Email.Bytes() output as the message
-func (e *Email) Send(addr string, a smtp.Auth) error {
+// Send an email using the given host and SMTP auth (optional), returns any
+// error thrown by smtp.SendMail.
+// This function merges the To, Cc, and Bcc fields and calls the smtp.SendMail
+// function using the Email.Bytes() output as the message
+func (e *Email) Send(addr string, a smtp.Auth, TLSMandatory bool) error {
 	// Merge the To, Cc, and Bcc fields
 	to := make([]string, 0, len(e.To)+len(e.Cc)+len(e.Bcc))
 	to = append(append(append(to, e.To...), e.Cc...), e.Bcc...)
@@ -217,11 +221,71 @@ func (e *Email) Send(addr string, a smtp.Auth) error {
 		return err
 	}
 
-	raw, err := e.Bytes()
+	msg, err := e.Bytes()
 	if err != nil {
 		return err
 	}
-	return smtp.SendMail(addr, a, from, to, raw)
+	return sendMail(addr, a, from, to, msg, TLSMandatory)
+}
+
+var testHookStartTLS func(*tls.Config) // nil, except for tests
+
+// Copy of smtp.SendMail() modified so we can fail if STARTTLS isn't available.
+func sendMail(addr string, a smtp.Auth, from string, to []string, msg []byte, TLSMandatory bool) error {
+	c, err := smtp.Dial(addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	//if err = c.hello(); err != nil {
+	if err = c.Hello("localhost"); err != nil {
+		return err
+	}
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		host, _, _ := net.SplitHostPort(addr)
+		config := &tls.Config{ServerName: host}
+		if testHookStartTLS != nil {
+			testHookStartTLS(config)
+		}
+		if err = c.StartTLS(config); err != nil {
+			return err
+		}
+	} else {
+		// This else branch is the only functional change.
+		if TLSMandatory {
+			return errors.New("we can't use STARTTLS, but it is mandatory")
+		}
+
+	}
+	//if a != nil && c.ext != nil {
+	//if _, ok := c.ext["AUTH"]; ok {
+	if ok, _ := c.Extension("AUTH"); ok {
+		if err = c.Auth(a); err != nil {
+			return err
+		}
+	}
+	//}
+	if err = c.Mail(from); err != nil {
+		return err
+	}
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			return err
+		}
+	}
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(msg)
+	if err != nil {
+		return err
+	}
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+	return c.Quit()
 }
 
 // Attachment is a struct representing an email attachment.
