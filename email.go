@@ -201,6 +201,16 @@ func (e *Email) Bytes() ([]byte, error) {
 // This function merges the To, Cc, and Bcc fields and calls the smtp.SendMail
 // function using the Email.Bytes() output as the message
 func (e *Email) Send(addr string, a smtp.Auth, TLSMandatory bool) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+	return e.SendWithConn(conn, addr, a, TLSMandatory)
+}
+
+var testHookStartTLS func(*tls.Config) // nil, except for tests
+
+func (e *Email) SendWithConn(conn net.Conn, addr string, a smtp.Auth, TLSMandatory bool) error {
 	// Merge the To, Cc, and Bcc fields
 	to := make([]string, 0, len(e.To)+len(e.Cc)+len(e.Bcc))
 	to = append(append(append(to, e.To...), e.Cc...), e.Bcc...)
@@ -211,31 +221,38 @@ func (e *Email) Send(addr string, a smtp.Auth, TLSMandatory bool) error {
 		}
 		to[i] = addr
 	}
+
 	// Check to make sure there is at least one recipient and one "From" address
 	if e.From == "" || len(to) == 0 {
 		return errors.New("Must specify at least one From address and one To address")
 	}
 
 	from, err := extractEmail(e.From)
-	if err != nil {
-		return err
-	}
 
 	msg, err := e.Bytes()
 	if err != nil {
 		return err
 	}
-	return sendMail(addr, a, from, to, msg, TLSMandatory)
+
+	return sendMailUsingConn(conn, addr, from, to, msg, TLSMandatory, a)
 }
 
-var testHookStartTLS func(*tls.Config) // nil, except for tests
-
 // Copy of smtp.SendMail() modified so we can fail if STARTTLS isn't available.
-func sendMail(addr string, a smtp.Auth, from string, to []string, msg []byte, TLSMandatory bool) error {
-	c, err := smtp.Dial(addr)
+func sendMailUsingConn(
+	conn net.Conn,
+	addr string,
+	from string,
+	to []string,
+	msg []byte,
+	TLSMandatory bool,
+	a smtp.Auth,
+) error {
+	host, _, _ := net.SplitHostPort(addr)
+	c, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return err
 	}
+
 	defer c.Close()
 	//if err = c.hello(); err != nil {
 	if err = c.Hello("localhost"); err != nil {
