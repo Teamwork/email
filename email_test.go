@@ -57,7 +57,7 @@ func TestEmailTextHtmlAttachment(t *testing.T) {
 	}
 	b := params["boundary"]
 	if b == "" {
-		t.Fatalf("Invalid or missing boundary parameter: ", b)
+		t.Fatalf("Invalid or missing boundary parameter: %v", b)
 	}
 	if len(params) != 1 {
 		t.Fatal("Unexpected content-type parameters")
@@ -68,7 +68,7 @@ func TestEmailTextHtmlAttachment(t *testing.T) {
 
 	text, err := mixed.NextPart()
 	if err != nil {
-		t.Fatalf("Could not find text component of email: ", err)
+		t.Fatalf("Could not find text component of email: %v", err)
 	}
 
 	// Does the text portion match what we expect?
@@ -94,7 +94,7 @@ func TestEmailTextHtmlAttachment(t *testing.T) {
 	// Check attachments.
 	_, err = mixed.NextPart()
 	if err != nil {
-		t.Fatalf("Could not find attachment compoenent of email: ", err)
+		t.Fatalf("Could not find attachment compoenent of email: %v", err)
 	}
 
 	if _, err = mixed.NextPart(); err != io.EOF {
@@ -106,11 +106,11 @@ func TestEmailTextHtmlAttachment(t *testing.T) {
 func Test_ExtractEmail(t *testing.T) {
 	email, err := extractEmail("Aolan Öber <test@test.com>")
 	if err != nil {
-		t.Fatalf("Expected err to be nil", err)
+		t.Fatalf("Expected err to be nil, got %v", err)
 	}
 
 	if email != "test@test.com" {
-		t.Fatalf("Expected email to be test@test.com", email)
+		t.Fatalf("Expected email to be %v", email)
 	}
 
 }
@@ -124,7 +124,7 @@ func ExampleGmail() {
 	e.Subject = "Awesome Subject"
 	e.Text = []byte("Text Body is, of course, supported!\n")
 	e.HTML = []byte("<h1>Fancy Html is supported, too!</h1>\n")
-	e.Send("smtp.gmail.com:587", smtp.PlainAuth("", e.From, "password123", "smtp.gmail.com"))
+	e.Send("smtp.gmail.com:587", smtp.PlainAuth("", e.From, "password123", "smtp.gmail.com"), false)
 }
 
 func ExampleAttach() {
