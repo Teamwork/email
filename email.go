@@ -38,6 +38,7 @@ type Email struct {
 	Subject     string
 	Text        []byte // Plaintext message (optional)
 	HTML        []byte // Html message (optional)
+	AMP         []byte // AMP message (optional)
 	Headers     textproto.MIMEHeader
 	Attachments []*Attachment
 	ReadReceipt []string
@@ -163,6 +164,17 @@ func (e *Email) Bytes() ([]byte, error) {
 			}
 			// Write the text
 			if err := quotePrintEncode(buff, e.Text); err != nil {
+				return nil, err
+			}
+		}
+		if len(e.AMP) > 0 {
+			header.Set("Content-Type", fmt.Sprintf("text/x-amp-html; charset=UTF-8"))
+			header.Set("Content-Transfer-Encoding", "quoted-printable")
+			if _, err := subWriter.CreatePart(header); err != nil {
+				return nil, err
+			}
+			// Write the text
+			if err := quotePrintEncode(buff, e.AMP); err != nil {
 				return nil, err
 			}
 		}
