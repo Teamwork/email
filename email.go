@@ -112,6 +112,9 @@ func (e *Email) msgHeaders() textproto.MIMEHeader {
 	if _, ok := res["Cc"]; !ok && len(e.Cc) > 0 {
 		res.Set("Cc", strings.Join(e.Cc, ", "))
 	}
+	if _, ok := res["Bcc"]; !ok && len(e.Bcc) > 0 {
+		res.Set("Bcc", strings.Join(e.Bcc, ", "))
+	}
 	if _, ok := res["Subject"]; !ok && e.Subject != "" {
 		res.Set("Subject", e.Subject)
 	}
